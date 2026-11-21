@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>3B Elektrik Alan (- -)</title>
+
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.5/aframe/build/aframe-ar.js"></script>
+</head>
+
+<body style="margin:0; overflow:hidden;">
+
+<a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+
+  <a-marker preset="hiro">
+
+    <!-- YÜKLER -->
+    <a-sphere position="-1 0 0" radius="0.15" color="blue"></a-sphere>
+    <a-sphere position="1 0 0" radius="0.15" color="blue"></a-sphere>
+
+    <!-- YÜK İŞARETLERİ -->
+    <a-text value="−" position="-1 0.17 0" color="white"
+      align="center" width="2" scale="2 2 2"></a-text>
+
+    <a-text value="−" position="1 0.17 0" color="white"
+      align="center" width="2" scale="2 2 2"></a-text>
+
+    <a-entity id="field"></a-entity>
+
+  </a-marker>
+
+  <a-entity camera></a-entity>
+
+</a-scene>
+
+<script>
+
+const field = document.querySelector("#field");
+
+const charges = [
+  {x:-1,y:0,z:0,q:-1},
+  {x: 1,y:0,z:0,q:-1}
+];
+
+function E(x,y,z){
+  let Ex=0,Ey=0,Ez=0;
+
+  charges.forEach(c=>{
+    let dx=x-c.x;
+    let dy=y-c.y;
+    let dz=z-c.z;
+
+    let r=Math.sqrt(dx*dx+dy*dy+dz*dz)+0.01;
+
+    Ex+=c.q*dx/(r*r*r);
+    Ey+=c.q*dy/(r*r*r);
+    Ez+=c.q*dz/(r*r*r);
+  });
+
+  return {Ex,Ey,Ez};
+}
+
+function createLine(x0,y0,z0){
+
+  let x=x0,y=y0,z=z0;
+
+  for(let i=0;i<1000;i++){
+
+    let f=E(x,y,z);
+
+    let Ex=f.Ex,Ey=f.Ey,Ez=f.Ez;
+
+    let mag=Math.sqrt(Ex*Ex+Ey*Ey+Ez*Ez);
+    if(mag<0.0001) break;
+
+    let step=0.03;
+
+    let dx=Ex/mag*step;
+    let dy=Ey/mag*step;
+    let dz=Ez/mag*step;
+
+    let nx=x+dx;
+    let ny=y+dy;
+    let nz=z+dz;
+
+    for(let c of charges){
+      let d=Math.sqrt(
+        (nx-c.x)**2+
+        (ny-c.y)**2+
+        (nz-c.z)**2
+      );
+      if(d<0.12) return;
+    }
+
+    let line=document.createElement("a-entity");
+    line.setAttribute("line",{
+      start:`${x} ${y} ${z}`,
+      end:`${nx} ${ny} ${nz}`,
+      color:"white"
+    });
+
+    field.appendChild(line);
+
+    if(i % 18 === 0){
+
+      let dir = new AFRAME.THREE.Vector3(dx,dy,dz).normalize();
+
+      let arrow = document.createElement("a-cone");
+
+      arrow.setAttribute("color","white");
+      arrow.setAttribute("radius-bottom","0.02");
+      arrow.setAttribute("height","0.05");
+      arrow.setAttribute("position",`${nx} ${ny} ${nz}`);
+
+      let q = new AFRAME.THREE.Quaternion();
+      q.setFromUnitVectors(
+        new AFRAME.THREE.Vector3(0,1,0),
+        dir
+      );
+
+      arrow.object3D.quaternion.copy(q);
+
+      field.appendChild(arrow);
+    }
+
+    x=nx;y=ny;z=nz;
+  }
+}
+
+// DAHA AZ ÇİZGİ (STABİL)
+for(let t=0;t<360;t+=60){
+  for(let p=-60;p<=60;p+=60){
+
+    let theta=t*Math.PI/180;
+    let phi=p*Math.PI/180;
+
+    let r=1.2;
+
+    let x=r*Math.cos(phi)*Math.cos(theta);
+    let y=r*Math.sin(phi);
+    let z=r*Math.cos(phi)*Math.sin(theta);
+
+    createLine(-1+x,y,z);
+    createLine( 1+x,y,z);
+  }
+}
+
+</script>
+
+</body>
+</html>
